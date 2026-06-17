@@ -1,0 +1,21 @@
+[package]
+name = "snapsave-parser"
+version = "0.1.0"
+edition = "2024"
+description = "Extract direct media download URLs from Instagram and Facebook via snapsave.app"
+license = "MIT"
+readme = "README.md"
+keywords = ["instagram", "facebook", "downloader", "media", "snapsave"]
+categories = ["multimedia", "web-programming"]
+
+[dependencies]
+reqwest = { version = "0.13", features = ["socks", "gzip", "brotli", "deflate", "form", "query"] }
+scraper = "0.27"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+tokio = { version = "1", features = ["time"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+serde_json = "1.0"
