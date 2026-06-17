@@ -26,6 +26,20 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 The API is async and runtime-agnostic; the examples use Tokio.
 
+### TLS backend
+
+The HTTP client's TLS backend is feature-selectable. The default is **`rustls-tls`**
+(pure-Rust, no OpenSSL), so static `musl` builds work without a system OpenSSL. To use
+the system's native TLS (OpenSSL) instead:
+
+```toml
+[dependencies]
+snapsave-parser = { version = "0.1", default-features = false, features = ["native-tls"] }
+```
+
+Available features: `rustls-tls` (default), `native-tls`, `native-tls-vendored`
+(native TLS with a statically-linked OpenSSL). At least one must be enabled.
+
 ## Usage
 
 Construct a `SnapSave` once and reuse it — it owns the HTTP client and compiled

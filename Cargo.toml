@@ -8,8 +8,19 @@ readme = "README.md"
 keywords = ["instagram", "facebook", "downloader", "media", "snapsave"]
 categories = ["multimedia", "web-programming"]
 
+[features]
+default = ["rustls-tls"]
+# Pure-Rust TLS (no OpenSSL); the default so static musl builds work out of the box.
+rustls-tls = ["reqwest/rustls"]
+# System native TLS (OpenSSL on Linux) — opt in with default-features = false.
+native-tls = ["reqwest/default-tls"]
+# Native TLS with a vendored, statically-linked OpenSSL.
+native-tls-vendored = ["reqwest/native-tls-vendored"]
+
 [dependencies]
-reqwest = { version = "0.13", features = ["socks", "gzip", "brotli", "deflate", "form", "query"] }
+# default-features disabled so consumers aren't forced onto OpenSSL; the TLS
+# backend is selected by this crate's own features above.
+reqwest = { version = "0.13", default-features = false, features = ["socks", "gzip", "brotli", "deflate", "form", "query"] }
 scraper = "0.27"
 regex = "1"
 serde = { version = "1", features = ["derive"] }

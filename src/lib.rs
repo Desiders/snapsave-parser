@@ -21,6 +21,9 @@
 //! returned); the [`Platform`] dispatch is structured so adding them later is a
 //! single new match arm.
 
+#[cfg(not(any(feature = "rustls-tls", feature = "native-tls", feature = "native-tls-vendored")))]
+compile_error!("snapsave-parser needs a TLS backend: enable `rustls-tls` (default) or `native-tls`");
+
 pub mod decrypter;
 pub mod types;
 pub mod utils;
