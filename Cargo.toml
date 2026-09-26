@@ -1,6 +1,6 @@
 [package]
 name = "snapsave-parser"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 description = "Extract direct media download URLs from Instagram and Facebook via snapsave.app"
 license = "MIT"
