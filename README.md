@@ -20,7 +20,7 @@ HTML; this crate unpacks that payload and parses the resulting markup for you.
 
 ```toml
 [dependencies]
-snapsave-parser = "0.1"
+snapsave-parser = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -34,7 +34,7 @@ the system's native TLS (OpenSSL) instead:
 
 ```toml
 [dependencies]
-snapsave-parser = { version = "0.1", default-features = false, features = ["native-tls"] }
+snapsave-parser = { version = "1", default-features = false, features = ["native-tls"] }
 ```
 
 Available features: `rustls-tls` (default), `native-tls`, `native-tls-vendored`
