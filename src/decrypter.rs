@@ -135,6 +135,7 @@ pub fn decrypt_snap_save(data: &str) -> Result<String, DecryptError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Error, SnapSave};
 
     #[test]
     fn decode_reads_bases() {
@@ -223,6 +224,18 @@ mod tests {
         let html = r#"<div class="download-items"><a href="https://x/v">go</a></div>"#;
         let payload = pack(&wrap_download_section(html), "abcdefghi", 8, 5);
         assert_eq!(decrypt_snap_save(&payload).unwrap(), html);
+    }
+
+    #[test]
+    fn decrypted_download_placeholder_is_not_successful_media() {
+        let html = r#"<div class="download-items"><div class="download-items__btn"><a href="&amp;dl=1"><span>Download video</span></a></div></div>"#;
+        let payload = pack(&wrap_download_section(html), "abcdefghi", 8, 5);
+        let decoded = decrypt_snap_save(&payload).expect("valid packed response");
+
+        assert!(matches!(
+            SnapSave::new().unwrap().parse_html(&decoded),
+            Err(Error::Blank)
+        ));
     }
 
     #[test]

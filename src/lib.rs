@@ -33,6 +33,7 @@ pub use types::{Error, SnapSaveDownloaderData, SnapSaveDownloaderMedia, SnapSave
 pub use utils::{USER_AGENT, fix_thumbnail};
 
 use regex::Regex;
+use reqwest::Url;
 use scraper::{ElementRef, Html, Selector};
 use std::time::Duration;
 
@@ -242,7 +243,7 @@ impl SnapSave {
     /// - [`Error::InvalidUrl`] / [`Error::Unsupported`] if `url` is unrecognized
     ///   or for a not-yet-implemented platform,
     /// - [`Error::Request`] / [`Error::Decrypt`] on transport or decode failure,
-    /// - [`Error::Blank`] if the response decoded but yielded no media.
+    /// - [`Error::Blank`] if the response decoded but yielded no usable media.
     pub async fn download(
         &self,
         url: &str,
@@ -301,8 +302,11 @@ impl SnapSave {
     /// Parse decoded download-section HTML (the output of [`decrypt_snap_save`])
     /// into data, applying the same CSS-branch logic as [`download`](Self::download).
     ///
+    /// Discards direct media entries without an absolute HTTP(S) URL. Render-gated
+    /// entries retain their existing action URLs.
+    ///
     /// # Errors
-    /// Returns [`Error::Blank`] if the markup contains no media.
+    /// Returns [`Error::Blank`] if the markup contains no usable media.
     pub fn parse_html(&self, decoded: &str) -> Result<SnapSaveDownloaderData, Error> {
         parse(decoded, &self.selectors, &self.regexes)
     }
@@ -340,6 +344,13 @@ fn parse(decoded: &str, selectors: &Selectors, regexes: &Regexes) -> Result<Snap
                 .map(|item| parse_download_item(item, selectors)),
         );
     }
+
+    media.retain(|item| {
+        item.should_render == Some(true)
+            || item.url.as_deref().is_some_and(|url| {
+                Url::parse(url).is_ok_and(|url| matches!(url.scheme(), "http" | "https") && url.has_host())
+            })
+    });
 
     if media.is_empty() {
         return Err(Error::Blank);
@@ -626,6 +637,86 @@ mod tests {
         assert_eq!(data.media[0].r#type.as_deref(), Some("video"));
         // download-items never sets description/preview
         assert_eq!(data.description, None);
+    }
+
+    #[test]
+    fn rejects_download_items_without_an_absolute_http_media_url() {
+        let snap = parser();
+        for href in [
+            None,
+            Some(""),
+            Some("&amp;dl=1"),
+            Some("#"),
+            Some("/video.mp4"),
+            Some("//cdn.example.test/video.mp4"),
+            Some("javascript:showAd()"),
+            Some("data:video/mp4;base64,AAAA"),
+            Some("file:///tmp/video.mp4"),
+            Some("ftp://cdn.example.test/video.mp4"),
+            Some("https://"),
+        ] {
+            let attribute = href.map_or(String::new(), |href| format!(r#" href="{href}""#));
+            let html = format!(
+                r#"<div class="download-items">
+                  <div class="download-items__thumb"><img src="https://cdn.example.test/thumb.jpg"></div>
+                  <div class="download-items__btn"><a{attribute}><span>Download video</span></a></div>
+                </div>"#
+            );
+            assert!(matches!(snap.parse_html(&html), Err(Error::Blank)), "href: {href:?}");
+        }
+    }
+
+    #[test]
+    fn keeps_valid_media_in_order_when_other_download_items_are_broken() {
+        let html = r#"
+            <div class="download-items">
+              <div class="download-items__btn"><a href="&amp;dl=1"><span>Download video</span></a></div>
+            </div>
+            <div class="download-items">
+              <div class="download-items__thumb"><img src="https://cdn.example.test/thumb.jpg"></div>
+              <div class="download-items__btn"><a href="http://cdn.example.test/video.mp4?token=synthetic&amp;dl=1"><span>Download video</span></a></div>
+            </div>
+            <div class="download-items">
+              <div class="download-items__thumb"><img src="https://cdn.example.test/photo.jpg"></div>
+              <div class="download-items__btn"><a href="https://cdn.example.test/ignored"><span>Download Photo</span></a></div>
+            </div>"#;
+        let data = parser().parse_html(html).expect("valid items remain available");
+
+        assert_eq!(data.media.len(), 2);
+        assert_eq!(
+            data.media[0].url.as_deref(),
+            Some("http://cdn.example.test/video.mp4?token=synthetic&dl=1")
+        );
+        assert_eq!(data.media[0].r#type.as_deref(), Some("video"));
+        assert_eq!(
+            data.media[0].thumbnail.as_deref(),
+            Some("https://cdn.example.test/thumb.jpg")
+        );
+        assert_eq!(
+            data.media[1].url.as_deref(),
+            Some("https://cdn.example.test/photo.jpg")
+        );
+        assert_eq!(data.media[1].r#type.as_deref(), Some("image"));
+    }
+
+    #[test]
+    fn rejects_broken_media_in_each_html_layout() {
+        let snap = parser();
+        for html in [
+            r#"<table class="table"><tbody>
+              <tr><td>720p</td><td></td><td><a href="&amp;dl=1">dl</a></td></tr>
+            </tbody></table>"#,
+            r#"<article class="media"><figure><img src="https://cdn.example.test/preview.jpg"></figure></article>
+            <div class="card"><div class="card-body"><a href="&amp;dl=1">Download Video</a></div></div>"#,
+            r#"<article class="media"><figure><img src="https://cdn.example.test/preview.jpg"></figure></article>
+            <a href="&amp;dl=1">Download Video</a>"#,
+            r#"<div class="download-items">
+              <div class="download-items__thumb"><img src="&amp;dl=1"></div>
+              <div class="download-items__btn"><a href="&amp;dl=1"><span>Download Photo</span></a></div>
+            </div>"#,
+        ] {
+            assert!(matches!(snap.parse_html(html), Err(Error::Blank)), "html: {html}");
+        }
     }
 
     #[test]

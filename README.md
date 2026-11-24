@@ -108,6 +108,11 @@ A Facebook success additionally carries `description`, `preview`, and per-row
 `resolution` (with `shouldRender: true` for variants that must be rendered server-side
 before download).
 
+Direct media entries with missing, relative, malformed, or non-HTTP(S) URLs are
+discarded. If no usable entries remain, parsing returns `Error::Blank` instead of
+reporting a successful extraction. Render-gated entries keep their existing action
+URLs.
+
 The types involved:
 
 | Type | Shape |

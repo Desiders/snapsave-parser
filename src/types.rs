@@ -23,7 +23,7 @@ pub struct SnapSaveDownloaderMedia {
     /// `"image"` or `"video"`.
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub r#type: Option<String>,
-    /// Direct media URL.
+    /// Absolute HTTP(S) media URL, or a render action when `should_render` is true.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
 }
@@ -79,7 +79,7 @@ pub enum Error {
     /// The URL is for a platform whose extraction flow is not implemented yet.
     #[error("{0} is not supported yet")]
     Unsupported(crate::Platform),
-    /// The response decoded successfully but contained no media.
+    /// The response decoded successfully but contained no usable media.
     #[error("no media found in response")]
     Blank,
 }
